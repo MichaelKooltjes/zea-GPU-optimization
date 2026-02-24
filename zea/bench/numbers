@@ -1,0 +1,19 @@
+=== 3D beam benchmark summary ===
+Load time:    0.34 s
+Prepare time: 0.09 s
+Run mean:     8.94 s  (min 8.94 s)
+FPS mean:     0.11 (frames_per_call=1)
+Peak VRAM:    5322.7 MiB
+Saved JSON:   bench_results_3d_beamforming.json
+
+=== Doppler benchmark summary ===
+Load time:            0.54 s
+B-mode prepare time:  0.11 s
+B-mode run mean:      41.39 s
+B-mode FPS mean:      0.29
+B-mode peak VRAM:     1939.9 MiB
+Doppler prepare time: 0.00 s
+Doppler run mean:     28.11 s
+Doppler FPS mean:     0.43
+Doppler peak VRAM:    6100.7 MiB
+Saved JSON:           bench_results_doppler.json
