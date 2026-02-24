@@ -6,7 +6,7 @@ import platform
 from statistics import mean, stdev
 
 os.environ["KERAS_BACKEND"] = "torch"
-os.environ["ZEA_DISABLE_CACHE"] = "1"
+os.environ["ZEA_DISABLE_CACHE"] = "0"
 
 #benchmark part
 def cuda_sync():
@@ -38,10 +38,10 @@ def main():
     parser = argparse.ArgumentParser(description="Baseline benchmark for 3D grid beamforming pipeline")
     parser.add_argument("--path", default="hf://zeahub/phantoms/2025_12_16_cirs_focused_3d.hdf5")
     parser.add_argument("--indices", default="0", help="Comma-separated indices, e.g. 0 or 0,1,2")
-    parser.add_argument("--chunks", type=int, default=4096)
+    parser.add_argument("--chunks", type=int, default=1024/2)
     parser.add_argument("--downscale", type=int, default=2)
-    parser.add_argument("--warmup", type=int, default=1)
-    parser.add_argument("--iters", type=int, default=2)
+    parser.add_argument("--warmup", type=int, default=0)
+    parser.add_argument("--iters", type=int, default=1)
     parser.add_argument("--out", default="bench_results_3d_beamforming.json")
     args = parser.parse_args()
 
@@ -167,6 +167,10 @@ def main():
     results["run_time_max_s"] = max(run_times)
     results["run_time_stdev_s"] = stdev(run_times) if len(run_times) >= 2 else 0.0
 
+    frames_per_call = max(1, len(indices))
+    results["frames_per_call"] = frames_per_call
+    results["fps_mean"] = frames_per_call / results["run_time_mean_s"]
+
     #peak VRAM
     try:
         import torch
@@ -193,9 +197,11 @@ def main():
 
     #readable results
     print("\n=== Benchmark summary ===")
-    print(f"Load time:    {results['load_time_s']*1000:.2f} ms")
-    print(f"Prepare time: {results['parameters_time_s']*1000:.2f} ms")
-    print(f"Run mean:     {results['run_time_mean_s']*1000:.2f} ms  (min {results['run_time_min_s']*1000:.2f} ms)")
+    print(f"Load time:    {results['load_time_s']:.2f} s")
+    print(f"Prepare time: {results['parameters_time_s']:.2f} s")
+    print(f"Run mean:     {results['run_time_mean_s']:.2f} s  (min {results['run_time_min_s']:.2f} s)")
+    print(f"FPS mean:     {results['fps_mean']:.2f} (frames_per_call={results['frames_per_call']})")
+
     if "peak_vram_bytes" in results:
         print(f"Peak VRAM:    {results['peak_vram_bytes']/1024/1024:.1f} MiB")
     print(f"Saved JSON:   {args.out}")
