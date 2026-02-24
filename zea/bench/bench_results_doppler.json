@@ -1,0 +1,116 @@
+{
+  "case": "doppler_example",
+  "path": "hf://zeahub/zea-rotating-disk/L115V_1radsec.hdf5",
+  "n_frames": 12,
+  "n_transmits": 10,
+  "warmup": 0,
+  "iters": 1,
+  "bmode_num_patches": 1000,
+  "doppler_num_patches": 50,
+  "env": {
+    "python": "3.12.12",
+    "platform": "Linux-6.8.0-100-generic-x86_64-with-glibc2.35",
+    "KERAS_BACKEND": "torch",
+    "ZEA_DISABLE_CACHE": "0",
+    "ZEA_LOG_LEVEL": "INFO",
+    "torch": "2.10.0+cu130",
+    "cuda_available": true,
+    "gpu_name": "NVIDIA GeForce RTX 3070 Ti"
+  },
+  "load_time_s": 0.5411629100017308,
+  "data_shape": [
+    12,
+    10,
+    2176,
+    128,
+    1
+  ],
+  "n_tx_total": 21,
+  "bmode_prepare_time_s": 0.10954606599989347,
+  "bmode": {
+    "run_times_s": [
+      41.39275026700125
+    ],
+    "run_time_mean_s": 41.39275026700125,
+    "run_time_min_s": 41.39275026700125,
+    "run_time_max_s": 41.39275026700125,
+    "run_time_stdev_s": 0.0,
+    "frames_per_call": 12,
+    "fps_mean": 0.2899058391287068,
+    "peak_allocated_bytes": 2034151936,
+    "peak_reserved_bytes": 2453667840,
+    "output_keys": [
+      "data",
+      "probe_geometry",
+      "center_frequency",
+      "sampling_frequency",
+      "xlims",
+      "zlims",
+      "n_el",
+      "tx_waveform_indices",
+      "flatgrid",
+      "focus_distances",
+      "polar_angles",
+      "sound_speed",
+      "f_number",
+      "dynamic_range",
+      "grid",
+      "t_peak",
+      "initial_times",
+      "apply_lens_correction",
+      "tx_apodizations",
+      "t0_delays",
+      "demodulation_frequency",
+      "n_ch",
+      "minval",
+      "maxval"
+    ],
+    "output_data_shape": [
+      12,
+      1059,
+      841
+    ]
+  },
+  "doppler_prepare_time_s": 0.0005891770015296061,
+  "doppler_prep": {
+    "run_times_s": [
+      28.113583458001813
+    ],
+    "run_time_mean_s": 28.113583458001813,
+    "run_time_min_s": 28.113583458001813,
+    "run_time_max_s": 28.113583458001813,
+    "run_time_stdev_s": 0.0,
+    "frames_per_call": 12,
+    "fps_mean": 0.42683993016850746,
+    "peak_allocated_bytes": 6397075456,
+    "peak_reserved_bytes": 7446986752,
+    "output_keys": [
+      "data",
+      "probe_geometry",
+      "center_frequency",
+      "sampling_frequency",
+      "xlims",
+      "zlims",
+      "n_el",
+      "tx_waveform_indices",
+      "flatgrid",
+      "focus_distances",
+      "polar_angles",
+      "sound_speed",
+      "f_number",
+      "grid",
+      "t_peak",
+      "initial_times",
+      "apply_lens_correction",
+      "tx_apodizations",
+      "t0_delays",
+      "demodulation_frequency",
+      "n_ch"
+    ],
+    "output_data_shape": [
+      12,
+      1059,
+      841
+    ]
+  }
+}
