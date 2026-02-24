@@ -1,0 +1,74 @@
+{
+  "case": "3d_beamforming",
+  "path": "hf://zeahub/phantoms/2025_12_16_cirs_focused_3d.hdf5",
+  "indices": [
+    0
+  ],
+  "chunks": 4096,
+  "downscale": 2,
+  "warmup": 1,
+  "iters": 2,
+  "env": {
+    "python": "3.12.12",
+    "platform": "Linux-6.8.0-100-generic-x86_64-with-glibc2.35",
+    "KERAS_BACKEND": "torch",
+    "ZEA_DISABLE_CACHE": "1",
+    "torch": "2.10.0+cu130",
+    "cuda_available": true,
+    "gpu_name": "NVIDIA GeForce RTX 3070 Ti"
+  },
+  "load_time_s": 131.47408642300002,
+  "rf_shape": [
+    1,
+    56,
+    1280,
+    1024,
+    1
+  ],
+  "grid_shape": [
+    254,
+    94,
+    3
+  ],
+  "parameters_time_s": 0.08880295899984958,
+  "run_times_s": [
+    8.303606782000088,
+    8.38582815299992
+  ],
+  "run_time_mean_s": 8.344717467500004,
+  "run_time_min_s": 8.303606782000088,
+  "run_time_max_s": 8.38582815299992,
+  "run_time_stdev_s": 0.05813928899243635,
+  "peak_vram_bytes": 5579504640,
+  "output_keys": [
+    "data",
+    "probe_geometry",
+    "center_frequency",
+    "sampling_frequency",
+    "xlims",
+    "zlims",
+    "n_el",
+    "flatgrid",
+    "apply_lens_correction",
+    "tx_apodizations",
+    "focus_distances",
+    "dynamic_range",
+    "t_peak",
+    "f_number",
+    "sound_speed",
+    "initial_times",
+    "t0_delays",
+    "tx_waveform_indices",
+    "grid",
+    "polar_angles",
+    "demodulation_frequency",
+    "n_ch",
+    "minval",
+    "maxval"
+  ],
+  "output_data_shape": [
+    1,
+    254,
+    94
+  ]
+}

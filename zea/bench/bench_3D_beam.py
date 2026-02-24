@@ -38,10 +38,10 @@ def main():
     parser = argparse.ArgumentParser(description="Baseline benchmark for 3D grid beamforming pipeline")
     parser.add_argument("--path", default="hf://zeahub/phantoms/2025_12_16_cirs_focused_3d.hdf5")
     parser.add_argument("--indices", default="0", help="Comma-separated indices, e.g. 0 or 0,1,2")
-    parser.add_argument("--chunks", type=int, default=1024)
+    parser.add_argument("--chunks", type=int, default=4096)
     parser.add_argument("--downscale", type=int, default=2)
-    parser.add_argument("--warmup", type=int, default=2)
-    parser.add_argument("--iters", type=int, default=10)
+    parser.add_argument("--warmup", type=int, default=1)
+    parser.add_argument("--iters", type=int, default=2)
     parser.add_argument("--out", default="bench_results_3d_beamforming.json")
     args = parser.parse_args()
 
@@ -194,7 +194,7 @@ def main():
     #readable results
     print("\n=== Benchmark summary ===")
     print(f"Load time:    {results['load_time_s']*1000:.2f} ms")
-    print(f"Prepare time: {results['prepare_time_s']*1000:.2f} ms")
+    print(f"Prepare time: {results['parameters_time_s']*1000:.2f} ms")
     print(f"Run mean:     {results['run_time_mean_s']*1000:.2f} ms  (min {results['run_time_min_s']*1000:.2f} ms)")
     if "peak_vram_bytes" in results:
         print(f"Peak VRAM:    {results['peak_vram_bytes']/1024/1024:.1f} MiB")

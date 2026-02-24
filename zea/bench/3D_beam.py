@@ -20,6 +20,7 @@ def main():
     init_device(verbose=True)
     set_mpl_style()
 
+    # Set rate to downscale grid resolution for more efficient beamforming
     downscale_rate = 2
 
     #put this here for easier access
