@@ -39,7 +39,7 @@ def main():
     parser.add_argument("--path", default="hf://zeahub/phantoms/2025_12_16_cirs_focused_3d.hdf5")
     parser.add_argument("--indices", default="0", help="Comma-separated indices, e.g. 0 or 0,1,2")
     parser.add_argument("--chunks", type=int, default=1024/2)
-    parser.add_argument("--downscale", type=int, default=2)
+    parser.add_argument("--downscale", type=int, default=1)
     parser.add_argument("--warmup", type=int, default=0)
     parser.add_argument("--iters", type=int, default=1)
     parser.add_argument("--out", default="bench_results_3d_beamforming.json")

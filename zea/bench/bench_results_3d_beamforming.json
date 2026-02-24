@@ -5,7 +5,7 @@
     0
   ],
   "chunks": 512.0,
-  "downscale": 2,
+  "downscale": 1,
   "warmup": 0,
   "iters": 1,
   "env": {
@@ -17,7 +17,7 @@
     "cuda_available": true,
     "gpu_name": "NVIDIA GeForce RTX 3070 Ti"
   },
-  "load_time_s": 0.32456762899892055,
+  "load_time_s": 0.3333128959966416,
   "rf_shape": [
     1,
     56,
@@ -26,21 +26,21 @@
     1
   ],
   "grid_shape": [
-    254,
-    94,
+    508,
+    189,
     3
   ],
-  "parameters_time_s": 0.09717911700136028,
+  "parameters_time_s": 0.08985582999957842,
   "run_times_s": [
-    2.8750837510015117
+    9.026256460998411
   ],
-  "run_time_mean_s": 2.8750837510015117,
-  "run_time_min_s": 2.8750837510015117,
-  "run_time_max_s": 2.8750837510015117,
+  "run_time_mean_s": 9.026256460998411,
+  "run_time_min_s": 9.026256460998411,
+  "run_time_max_s": 9.026256460998411,
   "run_time_stdev_s": 0.0,
   "frames_per_call": 1,
-  "fps_mean": 0.3478159548053716,
-  "peak_vram_bytes": 5579504640,
+  "fps_mean": 0.11078790020213852,
+  "peak_vram_bytes": 5581236224,
   "output_keys": [
     "data",
     "probe_geometry",
@@ -49,19 +49,19 @@
     "xlims",
     "zlims",
     "n_el",
-    "focus_distances",
-    "initial_times",
-    "t_peak",
-    "t0_delays",
-    "apply_lens_correction",
-    "tx_waveform_indices",
-    "f_number",
-    "grid",
     "dynamic_range",
-    "flatgrid",
-    "polar_angles",
+    "t0_delays",
+    "initial_times",
     "sound_speed",
+    "apply_lens_correction",
+    "polar_angles",
+    "flatgrid",
     "tx_apodizations",
+    "focus_distances",
+    "f_number",
+    "t_peak",
+    "grid",
+    "tx_waveform_indices",
     "demodulation_frequency",
     "n_ch",
     "minval",
@@ -69,7 +69,7 @@
   ],
   "output_data_shape": [
     1,
-    254,
-    94
+    508,
+    189
   ]
 }
