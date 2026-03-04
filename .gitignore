@@ -161,3 +161,4 @@ dmypy.json
 .pyre/
 zea/bench/test.py
 zea/bench/test.json
+zea/.vscode/settings.json

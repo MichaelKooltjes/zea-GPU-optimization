@@ -1,0 +1,70 @@
+{
+  "case": "sequence",
+  "path": "hf://zeahub/zea-carotid-2023/2_cross_bifur_right_0000_small.hdf5",
+  "n_frames": 15,
+  "n_tx": 11,
+  "warmup": 1,
+  "iters": 3,
+  "env": {
+    "python": "3.12.12",
+    "platform": "Linux-6.8.0-100-generic-x86_64-with-glibc2.35",
+    "KERAS_BACKEND": "jax",
+    "ZEA_DISABLE_CACHE": "0",
+    "jax": "0.9.1",
+    "jax_platform": "gpu",
+    "jax_devices": [
+      "cuda:0"
+    ]
+  },
+  "trace_dir": "/data/jax_traces/sequence",
+  "load_time_s": 0.857473324998864,
+  "data_shape": [
+    15,
+    149,
+    2176,
+    128,
+    1
+  ],
+  "parameters_time_s": 0.0560125380034151,
+  "run_times_s": [
+    6.507579783999972,
+    6.937771146000159,
+    6.497443624997686
+  ],
+  "run_time_mean_s": 6.647598184999272,
+  "run_time_min_s": 6.497443624997686,
+  "run_time_max_s": 6.937771146000159,
+  "run_time_stdev_s": 0.2513482562140555,
+  "frames_per_call": 15,
+  "fps_mean": 2.2564540729685576,
+  "output_keys": [
+    "data",
+    "probe_geometry",
+    "center_frequency",
+    "sampling_frequency",
+    "xlims",
+    "zlims",
+    "n_el",
+    "f_number",
+    "demodulation_frequency",
+    "t0_delays",
+    "focus_distances",
+    "initial_times",
+    "grid",
+    "tx_apodizations",
+    "tx_waveform_indices",
+    "flatgrid",
+    "sound_speed",
+    "t_peak",
+    "polar_angles",
+    "apply_lens_correction",
+    "transmit_origins",
+    "n_ch",
+    "maxval",
+    "minval"
+  ],
+  "output_data_shape": [
+    812,
+    774
+  ]
+}
