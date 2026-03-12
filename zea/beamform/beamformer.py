@@ -8,6 +8,34 @@ from zea.beamform.lens_correction import compute_lens_corrected_travel_times
 from zea.func.tensor import vmap
 
 
+def apply_delays_v2(data, delays, clip_min: int = -1, clip_max: int = -1):
+    delays = delays[..., None]
+
+    d0_float = ops.floor(delays)
+    d0_idx = ops.cast(d0_float, "int32")
+    d1_idx = d0_idx + 1
+
+    if clip_min != -1 and clip_max != -1:
+        clip_min = ops.cast(clip_min, d0_idx.dtype)
+        clip_max = ops.cast(clip_max, d0_idx.dtype)
+        d0_idx = ops.clip(d0_idx, clip_min, clip_max)
+        d1_idx = ops.clip(d1_idx, clip_min, clip_max)
+
+    if data.shape[-1] == 2:
+        d0_idx = ops.concatenate([d0_idx, d0_idx], axis=-1)
+        d1_idx = ops.concatenate([d1_idx, d1_idx], axis=-1)
+
+    data0 = ops.take_along_axis(data, d0_idx, 0)
+    data1 = ops.take_along_axis(data, d1_idx, 0)
+
+    data0 = ops.cast(data0, delays.dtype)
+    data1 = ops.cast(data1, delays.dtype)
+
+    frac = delays - d0_float
+    reflection_samples = data0 + frac * (data1 - data0)
+
+    return reflection_samples
+
 def fnum_window_fn_rect(normalized_angle):
     """Rectangular window function for f-number masking."""
     return ops.where(normalized_angle <= 1.0, 1.0, 0.0)
@@ -385,6 +413,7 @@ def apply_delays(data, delays, clip_min: int = -1, clip_max: int = -1):
     reflection_samples = (d1 - delays) * data0 + (delays - d0) * data1
 
     return reflection_samples
+
 
 
 def complex_rotate(iq, theta):

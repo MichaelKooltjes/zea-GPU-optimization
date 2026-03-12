@@ -1,6 +1,6 @@
 import os
 
-os.environ["KERAS_BACKEND"] = "torch"
+os.environ["KERAS_BACKEND"] = "jax"
 os.environ["ZEA_DISABLE_CACHE"] = "0"
 os.environ["ZEA_LOG_LEVEL"] = "INFO"
 

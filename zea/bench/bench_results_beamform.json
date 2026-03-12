@@ -1,0 +1,83 @@
+{
+  "case": "beamform_only",
+  "path": "hf://zeahub/phantoms/2025_12_16_cirs_focused_3d.hdf5",
+  "indices": [
+    0
+  ],
+  "beamformer": "delay_and_sum",
+  "num_patches": 100,
+  "enable_pfield": false,
+  "downscale": 1,
+  "warmup": 1,
+  "iters": 5,
+  "env": {
+    "python": "3.12.12",
+    "platform": "Linux-6.8.0-101-generic-x86_64-with-glibc2.35",
+    "KERAS_BACKEND": "jax",
+    "ZEA_DISABLE_CACHE": "0",
+    "jax": "0.9.1",
+    "jax_platform": "gpu",
+    "jax_devices": [
+      "cuda:0"
+    ]
+  },
+  "trace_dir": "/data/jax_traces/beamform",
+  "load_time_s": 0.43318585699989853,
+  "rf_shape": [
+    1,
+    56,
+    1280,
+    1024,
+    1
+  ],
+  "grid_shape": [
+    508,
+    189,
+    207,
+    3
+  ],
+  "parameters_time_s": 0.3008157080003002,
+  "run_times_s": [
+    10.015277439999863,
+    10.015152681000018,
+    10.01498982799967,
+    10.015020134999759,
+    10.015123348000088
+  ],
+  "run_time_mean_s": 10.01511268639988,
+  "run_time_min_s": 10.01498982799967,
+  "run_time_max_s": 10.015277439999863,
+  "run_time_stdev_s": 0.00011458286808366575,
+  "frames_per_call": 1,
+  "fps_mean": 0.09984910118464865,
+  "output_keys": [
+    "apply_lens_correction",
+    "center_frequency",
+    "data",
+    "demodulation_frequency",
+    "f_number",
+    "flatgrid",
+    "focus_distances",
+    "grid",
+    "initial_times",
+    "n_el",
+    "polar_angles",
+    "probe_geometry",
+    "sampling_frequency",
+    "sound_speed",
+    "t0_delays",
+    "t_peak",
+    "transmit_origins",
+    "tx_apodizations",
+    "tx_waveform_indices",
+    "xlims",
+    "zlims"
+  ],
+  "output_data_shape": [
+    1,
+    508,
+    189,
+    207,
+    1
+  ]
+}
