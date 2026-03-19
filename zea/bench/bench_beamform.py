@@ -1,4 +1,5 @@
 import os
+import time
 
 os.environ["KERAS_BACKEND"] = "jax"
 os.environ["ZEA_DISABLE_CACHE"] = "0"
@@ -10,8 +11,8 @@ from zea import init_device
 import jax.profiler
 from pathlib import Path
 
-n_frames = 10
-n_transmits = 10
+# n_frames = 25
+# n_transmits = 10
 
 init_device(verbose=False)
 
@@ -25,10 +26,10 @@ with zea.File("hf://zeahub/zea-rotating-disk/L115V_1radsec.hdf5") as file:
     data = file.load_data("raw_data")
     probe = file.probe()
 
-# ---- Beamform op only ----
+# beamform 
 beamform = zea.ops.Beamform(
     beamformer="delay_and_sum",
-    num_patches=10,
+    num_patches=200,
 )
 
 params = beamform.prepare_parameters(probe, scan)
@@ -36,7 +37,7 @@ params = beamform.prepare_parameters(probe, scan)
 trace_dir = "/data/jax_traces/beamform_only"
 Path(trace_dir).mkdir(parents=True, exist_ok=True)
 
-# warmup (important for JIT)
+# warmup
 for _ in range(1):
     out = beamform(data=data, **params)
     try:
@@ -45,8 +46,12 @@ for _ in range(1):
         pass
 
 # tensorboard trace
+n_runs = 3
+times = []
 with jax.profiler.trace(trace_dir):
-    for i in range(5):
+    for i in range(n_runs):
+        start = time.time()
+
         with jax.profiler.StepTraceAnnotation("beamform", step_num=i):
             out = beamform(data=data, **params)
             try:
@@ -54,4 +59,13 @@ with jax.profiler.trace(trace_dir):
             except:
                 pass
 
+        end = time.time()
+        times.append(end - start)
+
 print("Trace saved to:", trace_dir)
+mean_runtime = np.mean(times)
+fps = 1 / mean_runtime
+
+print(f"Mean runtime: {mean_runtime:.6f} s")
+print(f"Amount of runs: {len(times)}")
+print(f"Frames per second generated: {fps:.2f}")
