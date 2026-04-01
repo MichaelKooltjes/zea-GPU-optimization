@@ -4,13 +4,13 @@
   "indices": [
     0
   ],
-  "chunks": 512.0,
-  "downscale": 1,
-  "warmup": 0,
-  "iters": 1,
+  "chunks": 1024,
+  "downscale": 2,
+  "warmup": 1,
+  "iters": 3,
   "env": {
     "python": "3.12.12",
-    "platform": "Linux-6.8.0-100-generic-x86_64-with-glibc2.35",
+    "platform": "Linux-6.8.0-106-generic-x86_64-with-glibc2.35",
     "KERAS_BACKEND": "jax",
     "ZEA_DISABLE_CACHE": "0",
     "jax": "0.9.1",
@@ -20,7 +20,7 @@
     ]
   },
   "trace_dir": "/data/jax_traces/3D_beam",
-  "load_time_s": 0.3323756899999353,
+  "load_time_s": 0.5681862019991968,
   "rf_shape": [
     1,
     56,
@@ -29,26 +29,28 @@
     1
   ],
   "grid_shape": [
-    508,
-    189,
+    254,
+    94,
+    103,
     3
   ],
-  "parameters_time_s": 0.1197475779999877,
+  "parameters_time_s": 0.14725364799960516,
   "run_times_s": [
-    3.611087414999929
+    10.015425367004354,
+    10.01543913599744,
+    10.015137306007091
   ],
-  "run_time_mean_s": 3.611087414999929,
-  "run_time_min_s": 3.611087414999929,
-  "run_time_max_s": 3.611087414999929,
-  "run_time_stdev_s": 0.0,
+  "run_time_mean_s": 10.015333936336296,
+  "run_time_min_s": 10.015137306007091,
+  "run_time_max_s": 10.01543913599744,
+  "run_time_stdev_s": 0.00017042596945545204,
   "frames_per_call": 1,
-  "fps_mean": 0.2769248941042375,
+  "fps_mean": 0.09984689540624639,
   "output_keys": [
     "apply_lens_correction",
     "center_frequency",
     "data",
     "demodulation_frequency",
-    "dynamic_range",
     "f_number",
     "flatgrid",
     "focus_distances",
@@ -64,6 +66,7 @@
     "sound_speed",
     "t0_delays",
     "t_peak",
+    "transmit_origins",
     "tx_apodizations",
     "tx_waveform_indices",
     "xlims",
@@ -71,7 +74,8 @@
   ],
   "output_data_shape": [
     1,
-    508,
-    189
+    254,
+    94,
+    103
   ]
 }

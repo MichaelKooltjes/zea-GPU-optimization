@@ -100,7 +100,7 @@ def main():
     parser.add_argument("--path", default="hf://zeahub/zea-rotating-disk/L115V_1radsec.hdf5")
     parser.add_argument("--n_frames", type=int, default=25)
     parser.add_argument("--n_transmits", type=int, default=10)
-    parser.add_argument("--warmup", type=int, default=0)
+    parser.add_argument("--warmup", type=int, default=1)
     parser.add_argument("--iters", type=int, default=3)
     parser.add_argument("--bmode_num_patches", type=int, default=1000)
     parser.add_argument("--doppler_num_patches", type=int, default=20)

@@ -8,7 +8,7 @@
   "iters": 3,
   "env": {
     "python": "3.12.12",
-    "platform": "Linux-6.8.0-100-generic-x86_64-with-glibc2.35",
+    "platform": "Linux-6.8.0-106-generic-x86_64-with-glibc2.35",
     "KERAS_BACKEND": "jax",
     "ZEA_DISABLE_CACHE": "0",
     "jax": "0.9.1",
@@ -18,7 +18,7 @@
     ]
   },
   "trace_dir": "/data/jax_traces/working",
-  "load_time_s": 0.40076088500063634,
+  "load_time_s": 0.6396346260007704,
   "data_shape": [
     1,
     75,
@@ -26,19 +26,19 @@
     128,
     2
   ],
-  "default_parameters_time_s": 0.12151469399941561,
-  "custom_parameters_time_s": 0.0007798810001986567,
+  "default_parameters_time_s": 0.1224259360024007,
+  "custom_parameters_time_s": 0.0007957560010254383,
   "run_times_s": [
-    6.0426746559987805,
-    5.9800197439981275,
-    5.959374818998185
+    5.960631180001656,
+    5.952932226995472,
+    5.968278371001361
   ],
-  "run_time_mean_s": 5.994023072998364,
-  "run_time_min_s": 5.959374818998185,
-  "run_time_max_s": 6.0426746559987805,
-  "run_time_stdev_s": 0.0433795531143198,
+  "run_time_mean_s": 5.960613925999496,
+  "run_time_min_s": 5.952932226995472,
+  "run_time_max_s": 5.968278371001361,
+  "run_time_stdev_s": 0.0076730865522170524,
   "tasks_per_call": 1,
-  "task_rate_mean": 0.16683285796892575,
+  "task_rate_mean": 0.16776795350527868,
   "outputs": {
     "default_image_shape": [
       812,
