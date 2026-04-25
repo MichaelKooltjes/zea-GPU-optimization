@@ -224,6 +224,121 @@ def tof_correction(
     return vmap(_apply_delays)(data, txdel)
 
 
+def tof_correction_das(
+    data,
+    flatgrid,
+    t0_delays,
+    tx_apodizations,
+    sound_speed,
+    probe_geometry,
+    initial_times,
+    sampling_frequency,
+    demodulation_frequency,
+    f_number,
+    polar_angles,
+    focus_distances,
+    t_peak,
+    tx_waveform_indices,
+    transmit_origins,
+    apply_lens_correction=False,
+    lens_thickness=1e-3,
+    lens_sound_speed=1000,
+    fnum_window_fn=fnum_window_fn_rect,
+):
+    """Fused time-of-flight correction and delay-and-sum beamforming.
+
+    Equivalent to calling :func:`tof_correction` followed by summing over elements
+    and transmits (DAS), but never materializes the large
+    ``(n_tx, n_pix, n_el, n_ch)`` intermediate tensor.
+
+    On the JAX backend, transmits are processed sequentially via ``jax.lax.scan``
+    so peak memory per step is ``(n_pix, n_el, n_ch)`` instead of
+    ``(n_tx, n_pix, n_el, n_ch)``.  The element sum is applied immediately
+    after gathering, reducing the live tensor to ``(n_pix, n_ch)`` before
+    accumulating into the running DAS total.
+
+    Args:
+        data (ops.Tensor): Input RF/IQ data of shape ``(n_tx, n_ax, n_el, n_ch)``.
+        flatgrid (ops.Tensor): Pixel locations x, y, z of shape ``(n_pix, 3)``.
+        (remaining args identical to :func:`tof_correction`)
+
+    Returns:
+        ops.Tensor: Beamformed data of shape ``(n_pix, n_ch)``.
+    """
+    assert len(data.shape) == 4, (
+        f"Expected 4-D input (n_tx, n_ax, n_el, n_ch), got shape {data.shape}"
+    )
+
+    n_tx, n_ax, n_el, n_ch = data.shape
+
+    txdel, rxdel = calculate_delays(
+        flatgrid,
+        t0_delays,
+        tx_apodizations,
+        probe_geometry,
+        initial_times,
+        sampling_frequency,
+        sound_speed,
+        n_tx,
+        n_el,
+        focus_distances,
+        polar_angles,
+        t_peak,
+        tx_waveform_indices,
+        transmit_origins,
+        apply_lens_correction,
+        lens_thickness,
+        lens_sound_speed,
+    )
+
+    n_pix = ops.shape(flatgrid)[0]
+    mask = ops.cond(
+        f_number == 0,
+        lambda: ops.ones((n_pix, n_el, 1)),
+        lambda: fnumber_mask(flatgrid, probe_geometry, f_number, fnum_window_fn=fnum_window_fn),
+    )
+
+    # Reshape txdel from (n_pix, n_tx) to (n_tx, n_pix, 1) for per-transmit iteration.
+    txdel = ops.moveaxis(txdel, 1, 0)[..., None]
+
+    apply_phase_rotation = n_ch == 2
+
+    def _process_one_tx(data_tx, txdel_tx):
+        """Apply delays for one transmit and immediately sum over elements.
+
+        Args:
+            data_tx: RF/IQ data for one transmit, shape ``(n_ax, n_el, n_ch)``.
+            txdel_tx: Transmit delays for one transmit, shape ``(n_pix, 1)``.
+
+        Returns:
+            ops.Tensor: Element-summed result of shape ``(n_pix, n_ch)``.
+        """
+        delays = rxdel + txdel_tx  # (n_pix, n_el)
+        # Gather: (n_pix, n_el, n_ch) — same cost as before, but summed immediately
+        tof_tx = apply_delays_v2(data_tx, delays, clip_min=0, clip_max=n_ax - 1)
+        tof_tx = tof_tx * mask
+        if apply_phase_rotation:
+            total_delay_seconds = delays / sampling_frequency
+            theta = 2 * np.pi * demodulation_frequency * total_delay_seconds
+            tof_tx = complex_rotate(tof_tx, theta)
+        return ops.sum(tof_tx, axis=-2)  # (n_pix, n_ch) — sum over elements
+
+    if keras.backend.backend() == "jax":
+        import jax
+
+        def _scan_body(carry, x):
+            return carry + _process_one_tx(x[0], x[1]), None
+
+        init = ops.zeros((n_pix, n_ch), dtype=data.dtype)
+        result, _ = jax.lax.scan(_scan_body, init, (data, txdel))
+    else:
+        # Non-JAX: vmap over transmits, then sum — avoids the n_el axis in the output
+        per_tx = vmap(_process_one_tx)(data, txdel)  # (n_tx, n_pix, n_ch)
+        result = ops.sum(per_tx, axis=0)
+
+    return result
+
+
 def calculate_delays(
     grid,
     t0_delays,
