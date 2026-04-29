@@ -249,13 +249,9 @@ def tof_correction_das(
 
     Equivalent to calling :func:`tof_correction` followed by summing over elements
     and transmits (DAS), but never materializes the large
-    ``(n_tx, n_pix, n_el, n_ch)`` intermediate tensor.
-
-    On the JAX backend, transmits are processed sequentially via ``jax.lax.scan``
-    so peak memory per step is ``(n_pix, n_el, n_ch)`` instead of
-    ``(n_tx, n_pix, n_el, n_ch)``.  The element sum is applied immediately
-    after gathering, reducing the live tensor to ``(n_pix, n_ch)`` before
-    accumulating into the running DAS total.
+    ``(n_tx, n_pix, n_el, n_ch)`` intermediate tensor.  The element sum is applied
+    immediately inside the per-transmit body, so the persistent intermediate is
+    ``(n_tx, n_pix, n_ch)``, a factor of ``n_el`` smaller than the unfused path.
 
     Args:
         data (ops.Tensor): Input RF/IQ data of shape ``(n_tx, n_ax, n_el, n_ch)``.
@@ -323,18 +319,10 @@ def tof_correction_das(
             tof_tx = complex_rotate(tof_tx, theta)
         return ops.sum(tof_tx, axis=-2)  # (n_pix, n_ch) — sum over elements
 
-    if keras.backend.backend() == "jax":
-        import jax
-
-        def _scan_body(carry, x):
-            return carry + _process_one_tx(x[0], x[1]), None
-
-        init = ops.zeros((n_pix, n_ch), dtype=data.dtype)
-        result, _ = jax.lax.scan(_scan_body, init, (data, txdel))
-    else:
-        # Non-JAX: vmap over transmits, then sum — avoids the n_el axis in the output
-        per_tx = vmap(_process_one_tx)(data, txdel)  # (n_tx, n_pix, n_ch)
-        result = ops.sum(per_tx, axis=0)
+    # vmap over transmits then sum: intermediate is (n_tx, n_pix, n_ch) rather than
+    # (n_tx, n_pix, n_el, n_ch), saving the n_el factor while keeping full parallelism.
+    per_tx = vmap(_process_one_tx)(data, txdel)  # (n_tx, n_pix, n_ch)
+    result = ops.sum(per_tx, axis=0)
 
     return result
 

@@ -213,9 +213,9 @@ class TOFCorrectionDAS(Operation):
 
     Combines :class:`TOFCorrection` and ``DelayAndSum`` into a single kernel that
     never materializes the ``(n_tx, n_pix, n_el, n_ch)`` intermediate tensor.
-    On JAX, transmits are processed one at a time with ``jax.lax.scan`` so peak
-    memory per step is ``(n_pix, n_el, n_ch)`` rather than
-    ``(n_tx, n_pix, n_el, n_ch)``.
+    The element sum is applied immediately inside the per-transmit body so the
+    persistent intermediate is ``(n_tx, n_pix, n_ch)``, a factor of ``n_el``
+    smaller while transmits are still processed in parallel.
 
     Can replace ``[TOFCorrection(), DelayAndSum()]`` when pressure-field weighting
     is not needed (``enable_pfield=False``).

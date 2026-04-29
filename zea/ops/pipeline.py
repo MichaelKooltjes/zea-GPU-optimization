@@ -1119,10 +1119,11 @@ class Beamform(Pipeline):
                 ``enable_pfield=False``, replaces the separate
                 ``[TOFCorrection, DelayAndSum]`` pair with the single fused
                 :class:`~zea.ops.TOFCorrectionDAS` operation.  The fused kernel
-                never materializes the ``(n_tx, n_pix, n_el, n_ch)`` intermediate
-                tensor and uses ``jax.lax.scan`` on JAX to process transmits
-                sequentially with constant peak memory.  Defaults to ``False``
-                (original behaviour).
+                applies the element sum immediately inside the per-transmit body,
+                so the persistent intermediate is ``(n_tx, n_pix, n_ch)`` rather
+                than ``(n_tx, n_pix, n_el, n_ch)``, a factor of ``n_el`` smaller
+                while transmits are still processed in parallel.  Defaults to
+                ``False`` (original behaviour).
 
         """
 
