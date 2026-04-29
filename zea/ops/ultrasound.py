@@ -5,7 +5,7 @@ import numpy as np
 from keras import ops
 
 from zea import log
-from zea.beamform.beamformer import tof_correction
+from zea.beamform.beamformer import tof_correction, tof_correction_das
 from zea.display import scan_convert
 from zea.func.tensor import (
     apply_along_axis,
@@ -205,6 +205,90 @@ class TOFCorrection(Operation):
             )
 
         return {self.output_key: tof_corrected}
+
+
+@ops_registry("tof_correction_das")
+class TOFCorrectionDAS(Operation):
+    """Fused time-of-flight correction and delay-and-sum operation.
+
+    Combines :class:`TOFCorrection` and ``DelayAndSum`` into a single kernel that
+    never materializes the ``(n_tx, n_pix, n_el, n_ch)`` intermediate tensor.
+    On JAX, transmits are processed one at a time with ``jax.lax.scan`` so peak
+    memory per step is ``(n_pix, n_el, n_ch)`` rather than
+    ``(n_tx, n_pix, n_el, n_ch)``.
+
+    Can replace ``[TOFCorrection(), DelayAndSum()]`` when pressure-field weighting
+    is not needed (``enable_pfield=False``).
+
+    Output shape: ``(n_pix, n_ch)`` — same as ``DelayAndSum`` output.
+    """
+
+    STATIC_PARAMS = ["f_number", "apply_lens_correction"]
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            input_data_type=DataTypes.RAW_DATA,
+            output_data_type=DataTypes.BEAMFORMED_DATA,
+            **kwargs,
+        )
+
+    def call(
+        self,
+        flatgrid,
+        sound_speed,
+        polar_angles,
+        focus_distances,
+        sampling_frequency,
+        f_number,
+        demodulation_frequency,
+        t0_delays,
+        tx_apodizations,
+        initial_times,
+        probe_geometry,
+        t_peak,
+        tx_waveform_indices,
+        transmit_origins,
+        apply_lens_correction=None,
+        lens_thickness=None,
+        lens_sound_speed=None,
+        **kwargs,
+    ):
+        """Perform fused TOF correction and DAS beamforming.
+
+        Args identical to :meth:`TOFCorrection.call`, but returns beamformed
+        data of shape ``(n_pix, n_ch)`` directly.
+        """
+        raw_data = kwargs[self.key]
+
+        tof_das_kwargs = {
+            "flatgrid": flatgrid,
+            "t0_delays": t0_delays,
+            "tx_apodizations": tx_apodizations,
+            "sound_speed": sound_speed,
+            "probe_geometry": probe_geometry,
+            "initial_times": initial_times,
+            "sampling_frequency": sampling_frequency,
+            "demodulation_frequency": demodulation_frequency,
+            "f_number": f_number,
+            "polar_angles": polar_angles,
+            "focus_distances": focus_distances,
+            "t_peak": t_peak,
+            "tx_waveform_indices": tx_waveform_indices,
+            "transmit_origins": transmit_origins,
+            "apply_lens_correction": apply_lens_correction,
+            "lens_thickness": lens_thickness,
+            "lens_sound_speed": lens_sound_speed,
+        }
+
+        if not self.with_batch_dim:
+            result = tof_correction_das(raw_data, **tof_das_kwargs)
+        else:
+            result = ops.map(
+                lambda data: tof_correction_das(data, **tof_das_kwargs),
+                raw_data,
+            )
+
+        return {self.output_key: result}
 
 
 @ops_registry("pfield_weighting")

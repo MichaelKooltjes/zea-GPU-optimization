@@ -32,10 +32,11 @@ with zea.File("hf://zeahub/zea-rotating-disk/L115V_1radsec.hdf5") as file:
     data = file.load_data("raw_data", indices=(selected_frames, selected_tx))
     probe = file.probe()
 
-# beamform 
+# beamform — set fused=True to use the optimized TOFCorrectionDAS kernel
 beamform = zea.ops.Beamform(
     beamformer="delay_and_sum",
     num_patches=2,
+    fused=False,  # toggle to True to benchmark the fused kernel
 )
 
 params = beamform.prepare_parameters(probe, scan)

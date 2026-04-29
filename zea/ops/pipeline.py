@@ -34,6 +34,7 @@ from zea.ops.ultrasound import (
     PfieldWeighting,
     ReshapeGrid,
     TOFCorrection,
+    TOFCorrectionDAS,
 )
 from zea.probes import Probe
 from zea.scan import Scan
@@ -1098,7 +1099,14 @@ class Beamform(Pipeline):
     - ReshapeGrid (flattened grid is also reshaped to `(grid_size_z, grid_size_x)`)
     """  # noqa: E501
 
-    def __init__(self, beamformer="delay_and_sum", num_patches=100, enable_pfield=False, **kwargs):
+    def __init__(
+        self,
+        beamformer="delay_and_sum",
+        num_patches=100,
+        enable_pfield=False,
+        fused=False,
+        **kwargs,
+    ):
         """Initialize a Delay-and-Sum beamforming `zea.Pipeline`.
 
         Args:
@@ -1107,12 +1115,21 @@ class Beamform(Pipeline):
             num_patches (int): Number of patches to split the grid into for patch-wise
                 beamforming. If 1, no patching is performed.
             enable_pfield (bool): Whether to include pressure field weighting in the beamforming.
+            fused (bool): When True and ``beamformer="delay_and_sum"`` and
+                ``enable_pfield=False``, replaces the separate
+                ``[TOFCorrection, DelayAndSum]`` pair with the single fused
+                :class:`~zea.ops.TOFCorrectionDAS` operation.  The fused kernel
+                never materializes the ``(n_tx, n_pix, n_el, n_ch)`` intermediate
+                tensor and uses ``jax.lax.scan`` on JAX to process transmits
+                sequentially with constant peak memory.  Defaults to ``False``
+                (original behaviour).
 
         """
 
         self.beamformer_type = beamformer
         self.num_patches = num_patches
         self.enable_pfield = enable_pfield
+        self.fused = fused
 
         # for backwards compatibility
         name_mapping = {
@@ -1132,12 +1149,22 @@ class Beamform(Pipeline):
                 "Supported types are 'delay_and_sum' and 'delay_multiply_and_sum'."
             )
 
+        # fused=True is only compatible with delay_and_sum without pfield weighting
+        use_fused = (
+            self.fused
+            and not self.enable_pfield
+            and self.beamformer_type == "delay_and_sum"
+        )
+
         # Get beamforming ops
-        beamforming = [
-            TOFCorrection(),
-            # PfieldWeighting(),  # Inserted conditionally
-            get_ops(self.beamformer_type)(),
-        ]
+        if use_fused:
+            beamforming = [TOFCorrectionDAS()]
+        else:
+            beamforming = [
+                TOFCorrection(),
+                # PfieldWeighting(),  # Inserted conditionally
+                get_ops(self.beamformer_type)(),
+            ]
 
         if self.enable_pfield:
             beamforming.insert(1, PfieldWeighting())
@@ -1180,6 +1207,7 @@ class Beamform(Pipeline):
                 "beamformer": self.beamformer_type,
                 "num_patches": self.num_patches,
                 "enable_pfield": self.enable_pfield,
+                "fused": self.fused,
             }
         )
         return config
