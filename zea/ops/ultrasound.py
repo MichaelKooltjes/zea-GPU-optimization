@@ -5,7 +5,7 @@ import numpy as np
 from keras import ops
 
 from zea import log
-from zea.beamform.beamformer import tof_correction, tof_correction_das
+from zea.beamform.beamformer import tof_correction, tof_correction_das, tof_correction_loop_reorder
 from zea.display import scan_convert
 from zea.func.tensor import (
     apply_along_axis,
@@ -285,6 +285,93 @@ class TOFCorrectionDAS(Operation):
         else:
             result = ops.map(
                 lambda data: tof_correction_das(data, **tof_das_kwargs),
+                raw_data,
+            )
+
+        return {self.output_key: result}
+
+
+@ops_registry("tof_correction_loop_reorder")
+class TOFCorrectionLoopReorder(Operation):
+    """Fused TOF correction and DAS with element-major loop order.
+
+    Equivalent to :class:`TOFCorrectionDAS` in output but restructures the
+    inner gather so raw data is transposed to ``(n_tx, n_el, n_ax, n_ch)``
+    before processing.  Each inner step processes one ``(n_ax, n_ch)``
+    element slice across all pixels (stride ``n_ch`` gather) rather than
+    gathering from the interleaved ``(n_ax, n_el, n_ch)`` layout
+    (stride ``n_el * n_ch`` gather).
+
+    This loop order can improve GPU L2 cache hit rate when ``n_el`` is large,
+    because the working set per inner step is a compact ``n_ax * n_ch``-float
+    buffer rather than a scattered ``n_ax``-element stride across the full
+    element axis.
+
+    Output shape: ``(n_pix, n_ch)`` — same as :class:`TOFCorrectionDAS`.
+    """
+
+    STATIC_PARAMS = ["f_number", "apply_lens_correction"]
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            input_data_type=DataTypes.RAW_DATA,
+            output_data_type=DataTypes.BEAMFORMED_DATA,
+            **kwargs,
+        )
+
+    def call(
+        self,
+        flatgrid,
+        sound_speed,
+        polar_angles,
+        focus_distances,
+        sampling_frequency,
+        f_number,
+        demodulation_frequency,
+        t0_delays,
+        tx_apodizations,
+        initial_times,
+        probe_geometry,
+        t_peak,
+        tx_waveform_indices,
+        transmit_origins,
+        apply_lens_correction=None,
+        lens_thickness=None,
+        lens_sound_speed=None,
+        **kwargs,
+    ):
+        """Perform loop-reordered fused TOF correction and DAS.
+
+        Args identical to :meth:`TOFCorrectionDAS.call`; returns beamformed
+        data of shape ``(n_pix, n_ch)`` directly.
+        """
+        raw_data = kwargs[self.key]
+
+        tof_lr_kwargs = {
+            "flatgrid": flatgrid,
+            "t0_delays": t0_delays,
+            "tx_apodizations": tx_apodizations,
+            "sound_speed": sound_speed,
+            "probe_geometry": probe_geometry,
+            "initial_times": initial_times,
+            "sampling_frequency": sampling_frequency,
+            "demodulation_frequency": demodulation_frequency,
+            "f_number": f_number,
+            "polar_angles": polar_angles,
+            "focus_distances": focus_distances,
+            "t_peak": t_peak,
+            "tx_waveform_indices": tx_waveform_indices,
+            "transmit_origins": transmit_origins,
+            "apply_lens_correction": apply_lens_correction,
+            "lens_thickness": lens_thickness,
+            "lens_sound_speed": lens_sound_speed,
+        }
+
+        if not self.with_batch_dim:
+            result = tof_correction_loop_reorder(raw_data, **tof_lr_kwargs)
+        else:
+            result = ops.map(
+                lambda data: tof_correction_loop_reorder(data, **tof_lr_kwargs),
                 raw_data,
             )
 

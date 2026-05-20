@@ -705,6 +705,152 @@ def transmit_delays(
     return tx_delay
 
 
+def tof_correction_loop_reorder(
+    data,
+    flatgrid,
+    t0_delays,
+    tx_apodizations,
+    sound_speed,
+    probe_geometry,
+    initial_times,
+    sampling_frequency,
+    demodulation_frequency,
+    f_number,
+    polar_angles,
+    focus_distances,
+    t_peak,
+    tx_waveform_indices,
+    transmit_origins,
+    apply_lens_correction=False,
+    lens_thickness=1e-3,
+    lens_sound_speed=1000,
+    fnum_window_fn=fnum_window_fn_rect,
+):
+    """Fused TOF correction and DAS with loop order tx → element → pixel.
+
+    Functionally identical to :func:`tof_correction_das` but restructures the
+    computation so the innermost operation processes **one transducer element
+    at a time** across all pixels.  The raw data is first transposed to
+    ``(n_tx, n_el, n_ax, n_ch)`` so each element's time-series is contiguous
+    in memory.  The inner :func:`~zea.func.tensor.vmap` over ``n_el`` then
+    issues gather operations with stride ``n_ch`` instead of
+    ``n_el * n_ch``, improving GPU L2 spatial locality.
+
+    Loop order comparison
+    ---------------------
+    * **Standard (pixel-major)**: ``vmap(tx) → [n_pix, n_el]`` gather from
+      ``(n_ax, n_el, n_ch)`` — strided by ``n_el * n_ch`` per axial step.
+    * **This variant (element-major)**: ``vmap(tx) → vmap(el)`` gather from
+      ``(n_ax, n_ch)`` — strided by ``n_ch`` per axial step.
+
+    Args:
+        data (ops.Tensor): RF/IQ data of shape ``(n_tx, n_ax, n_el, n_ch)``.
+        flatgrid (ops.Tensor): Pixel coordinates of shape ``(n_pix, 3)``.
+        (remaining args identical to :func:`tof_correction_das`)
+
+    Returns:
+        ops.Tensor: Beamformed data of shape ``(n_pix, n_ch)``.
+    """
+    assert len(data.shape) == 4, (
+        f"Expected 4-D input (n_tx, n_ax, n_el, n_ch), got shape {data.shape}"
+    )
+
+    n_tx, n_ax, n_el, n_ch = data.shape
+
+    txdel, rxdel = calculate_delays(
+        flatgrid,
+        t0_delays,
+        tx_apodizations,
+        probe_geometry,
+        initial_times,
+        sampling_frequency,
+        sound_speed,
+        n_tx,
+        n_el,
+        focus_distances,
+        polar_angles,
+        t_peak,
+        tx_waveform_indices,
+        transmit_origins,
+        apply_lens_correction,
+        lens_thickness,
+        lens_sound_speed,
+    )
+
+    n_pix = ops.shape(flatgrid)[0]
+    mask = ops.cond(
+        f_number == 0,
+        lambda: ops.ones((n_pix, n_el, 1)),
+        lambda: fnumber_mask(flatgrid, probe_geometry, f_number, fnum_window_fn=fnum_window_fn),
+    )
+
+    # Transpose: (n_tx, n_ax, n_el, n_ch) → (n_tx, n_el, n_ax, n_ch)
+    # Makes each element's time-series contiguous so inner gather is stride-n_ch.
+    data_el_major = ops.transpose(data, [0, 2, 1, 3])
+
+    # txdel: (n_pix, n_tx) → (n_tx, n_pix) for outer vmap
+    txdel_per_tx = ops.moveaxis(txdel, 1, 0)
+
+    apply_phase_rotation = n_ch == 2
+
+    def _gather_one_element(data_el, rxdel_el, mask_el, txdel_tx):
+        """Interpolated contribution from one (tx, element) for all pixels.
+
+        Args:
+            data_el (ops.Tensor): ``(n_ax, n_ch)`` — contiguous element data.
+            rxdel_el (ops.Tensor): ``(n_pix,)`` — receive delays this element.
+            mask_el (ops.Tensor): ``(n_pix, 1)`` — f-number mask this element.
+            txdel_tx (ops.Tensor): ``(n_pix,)`` — transmit delays (broadcast).
+
+        Returns:
+            ops.Tensor: Shape ``(n_pix, n_ch)``.
+        """
+        delays = rxdel_el + txdel_tx  # (n_pix,)
+
+        d0 = ops.cast(ops.floor(delays), "int32")  # (n_pix,)
+        d1 = d0 + 1
+        d0 = ops.clip(d0, 0, n_ax - 1)
+        d1 = ops.clip(d1, 0, n_ax - 1)
+
+        frac = (delays - ops.floor(delays))[:, None]  # (n_pix, 1) for broadcast
+
+        # Stride-n_ch gather, data_el is (n_ax, n_ch), index along axis 0
+        s0 = ops.cast(data_el[d0], delays.dtype)  # (n_pix, n_ch)
+        s1 = ops.cast(data_el[d1], delays.dtype)  # (n_pix, n_ch)
+
+        interp = s0 + frac * (s1 - s0)  # (n_pix, n_ch)
+        interp = interp * ops.cast(mask_el, delays.dtype)
+
+        if apply_phase_rotation:
+            total_delay_sec = delays / sampling_frequency
+            theta = 2 * np.pi * demodulation_frequency * total_delay_sec  # (n_pix,)
+            interp = complex_rotate(interp, theta)
+
+        return interp  # (n_pix, n_ch)
+
+    def _process_one_tx(data_tx_el_major, txdel_tx):
+        """Sum element contributions for one transmit.
+
+        Args:
+            data_tx_el_major (ops.Tensor): ``(n_el, n_ax, n_ch)``.
+            txdel_tx (ops.Tensor): ``(n_pix,)``.
+
+        Returns:
+            ops.Tensor: Shape ``(n_pix, n_ch)``.
+        """
+        # in_axes: data_el → axis 0 (n_el), rxdel → axis 1 (n_el),
+        #          mask   → axis 1 (n_el), txdel_tx → None (broadcast)
+        el_contribs = vmap(
+            _gather_one_element,
+            in_axes=(0, 1, 1, None),
+        )(data_tx_el_major, rxdel, mask, txdel_tx)  # (n_el, n_pix, n_ch)
+
+        return ops.sum(el_contribs, axis=0)  # (n_pix, n_ch)
+
+    per_tx = vmap(_process_one_tx)(data_el_major, txdel_per_tx)  # (n_tx, n_pix, n_ch)
+    return ops.sum(per_tx, axis=0)  # (n_pix, n_ch)
+
+
 def fnumber_mask(flatgrid, probe_geometry, f_number, fnum_window_fn):
     """Apodization mask for the receive beamformer.
 
