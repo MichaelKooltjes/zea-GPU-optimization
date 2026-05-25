@@ -851,6 +851,90 @@ def tof_correction_loop_reorder(
     return ops.sum(per_tx, axis=0)  # (n_pix, n_ch)
 
 
+def precompute_delay_lut(
+    flatgrid,
+    t0_delays,
+    tx_apodizations,
+    probe_geometry,
+    initial_times,
+    sampling_frequency,
+    sound_speed,
+    n_tx,
+    n_el,
+    focus_distances,
+    polar_angles,
+    t_peak,
+    tx_waveform_indices,
+    transmit_origins,
+    f_number,
+    apply_lens_correction=False,
+    lens_thickness=1e-3,
+    lens_sound_speed=1000,
+    fnum_window_fn=fnum_window_fn_rect,
+):
+    """Compute and return txdel (n_pix, n_tx), rxdel (n_pix, n_el) and mask (n_pix, n_el, 1)."""
+    txdel, rxdel = calculate_delays(
+        flatgrid,
+        t0_delays,
+        tx_apodizations,
+        probe_geometry,
+        initial_times,
+        sampling_frequency,
+        sound_speed,
+        n_tx,
+        n_el,
+        focus_distances,
+        polar_angles,
+        t_peak,
+        tx_waveform_indices,
+        transmit_origins,
+        apply_lens_correction,
+        lens_thickness,
+        lens_sound_speed,
+    )
+
+    n_pix = ops.shape(flatgrid)[0]
+    mask = ops.cond(
+        f_number == 0,
+        lambda: ops.ones((n_pix, n_el, 1)),
+        lambda: fnumber_mask(flatgrid, probe_geometry, f_number, fnum_window_fn),
+    )
+
+    return {"txdel": txdel, "rxdel": rxdel, "mask": mask}
+
+
+def tof_correction_das_lut(
+    data, lut_txdel, lut_rxdel, lut_mask, demodulation_frequency, sampling_frequency
+):
+    """Fused DAS using precomputed delay tables (skips calculate_delays).
+
+    Args:
+        data: RF/IQ data of shape ``(n_tx, n_ax, n_el, n_ch)``.
+        lut_txdel: Transmit delays ``(n_pix, n_tx)`` from :func:`precompute_delay_lut`.
+        lut_rxdel: Receive delays ``(n_pix, n_el)`` from :func:`precompute_delay_lut`.
+        lut_mask:  F-number mask ``(n_pix, n_el, 1)`` from :func:`precompute_delay_lut`.
+        demodulation_frequency: Used only for IQ phase rotation (n_ch == 2).
+        sampling_frequency: Used only for IQ phase rotation (n_ch == 2).
+
+    Returns:
+        ops.Tensor: Beamformed data of shape ``(n_pix, n_ch)``.
+    """
+    n_tx, n_ax, n_el, n_ch = data.shape
+    txdel = ops.moveaxis(lut_txdel, 1, 0)[..., None]  # (n_tx, n_pix, 1)
+    apply_phase_rotation = n_ch == 2
+
+    def _process_one_tx(data_tx, txdel_tx):
+        delays = lut_rxdel + txdel_tx  # (n_pix, n_el)
+        tof_tx = apply_delays_v2(data_tx, delays, clip_min=0, clip_max=n_ax - 1)
+        tof_tx = tof_tx * lut_mask
+        if apply_phase_rotation:
+            theta = 2 * np.pi * demodulation_frequency * delays / sampling_frequency
+            tof_tx = complex_rotate(tof_tx, theta)
+        return ops.sum(tof_tx, axis=-2)
+
+    return ops.sum(vmap(_process_one_tx)(data, txdel), axis=0)
+
+
 def fnumber_mask(flatgrid, probe_geometry, f_number, fnum_window_fn):
     """Apodization mask for the receive beamformer.
 

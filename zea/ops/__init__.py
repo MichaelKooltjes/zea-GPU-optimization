@@ -140,6 +140,7 @@ from .ultrasound import (
     TOFCorrection,
     TOFCorrectionDAS,
     TOFCorrectionLoopReorder,
+    TOFCorrectionDASLUT,
     UpMix,
 )
 
@@ -188,6 +189,7 @@ __all__ = [
     "TOFCorrection",
     "TOFCorrectionDAS",
     "TOFCorrectionLoopReorder",
+    "TOFCorrectionDASLUT",
     "UpMix",
     # Keras operations
     "keras_ops",

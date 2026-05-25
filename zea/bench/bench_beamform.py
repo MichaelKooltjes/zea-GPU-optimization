@@ -17,6 +17,7 @@ from zea.beamform.tiling import compute_l2_num_patches, query_gpu_l2_cache_bytes
 from zea.internal.core import DataTypes
 from zea.ops import (
     TOFCorrectionLoopReorder,
+    TOFCorrectionDASLUT,
     ReshapeGrid,
     Pipeline,
 )
@@ -31,8 +32,9 @@ from zea.ops.pipeline import PatchedGrid
 #   "l2_aware"     – fused + num_patches chosen to fit GPU L2 cache
 #   "loop_reorder" – element-major inner loop for better gather locality
 #   "float16"      – fused pipeline with input data cast to float16
+#   "lut_reorder"  – fused DAS + precomputed delay LUT (skips delay math on every frame)
 #
-MODE = "float16"
+MODE = "lut_reorder"
 
 # Patch count used by baseline / fused / loop_reorder / float16 modes.
 # l2_aware ignores this and computes its own value at runtime.
@@ -107,10 +109,25 @@ elif MODE == "float16":
     input_data = ops.cast(data, "float16")
     num_patches = NUM_PATCHES
 
+elif MODE == "lut_reorder":
+    # Same structure as loop_reorder but the inner op caches txdel + rxdel per patch.
+    # On the first frame (warmup) each patch's delays are computed once and stored
+    # as GPU arrays in a dict. Timed frames skip calculate_delays entirely.
+    # Factored storage (txdel + rxdel separately) keeps VRAM usage manageable:
+    # ~960 MB for all 200 patches of this dataset vs ~13.7 GB for the full table.
+    reshape = ReshapeGrid()
+    reshape.output_data_type = DataTypes.BEAMFORMED_DATA
+    beamform = Pipeline([
+        PatchedGrid([TOFCorrectionDASLUT()], num_patches=NUM_PATCHES),
+        reshape,
+    ])
+    input_data = data
+    num_patches = NUM_PATCHES
+
 else:
     raise ValueError(
         f"Unknown MODE: {MODE!r}. "
-        "Choose from: baseline, fused, l2_aware, loop_reorder, float16"
+        "Choose from: baseline, fused, l2_aware, loop_reorder, float16, lut_reorder"
     )
 
 print(f"Mode: {MODE}  |  n_pix={n_pix}  n_ch={n_ch}  num_patches={num_patches}")

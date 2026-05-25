@@ -5,7 +5,13 @@ import numpy as np
 from keras import ops
 
 from zea import log
-from zea.beamform.beamformer import tof_correction, tof_correction_das, tof_correction_loop_reorder
+from zea.beamform.beamformer import (
+    precompute_delay_lut,
+    tof_correction,
+    tof_correction_das,
+    tof_correction_das_lut,
+    tof_correction_loop_reorder,
+)
 from zea.display import scan_convert
 from zea.func.tensor import (
     apply_along_axis,
@@ -375,6 +381,108 @@ class TOFCorrectionLoopReorder(Operation):
                 raw_data,
             )
 
+        return {self.output_key: result}
+
+
+@ops_registry("tof_correction_das_lut")
+class TOFCorrectionDASLUT(Operation):
+    """Fused DAS with a per-patch delay cache. Skips calculate_delays after the first frame.
+
+    On first call for each pixel patch, txdel/rxdel/mask are computed and stored.
+    Subsequent frames skip the expensive distance arithmetic entirely.
+
+    Factored storage (txdel + rxdel separately) keeps VRAM usage manageable.
+    Designed to wrap inside :class:`~zea.ops.pipeline.PatchedGrid`.
+    Output shape: ``(n_pix, n_ch)``.
+    """
+
+    STATIC_PARAMS = ["f_number", "apply_lens_correction"]
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            input_data_type=DataTypes.RAW_DATA,
+            output_data_type=DataTypes.BEAMFORMED_DATA,
+            **kwargs,
+        )
+        self._lut_cache = {}  # keyed by (n_pix, first_pixel_tuple)
+
+    @property
+    def needs_keys(self):
+        # lut_txdel, lut_rxdel, lut_mask are injected in __call__, exclude from pipeline lookup
+        return self.valid_keys - {"lut_txdel", "lut_rxdel", "lut_mask"}
+
+    def __call__(self, **kwargs):
+        merged = {**self._input_cache, **kwargs}
+        flatgrid = merged["flatgrid"]
+
+        n_pix = int(flatgrid.shape[0])
+        try:
+            import numpy as _np
+            p0 = tuple(float(x) for x in _np.asarray(flatgrid[0]))
+        except Exception:
+            p0 = (n_pix,)
+        cache_key = (n_pix, p0)
+
+        if cache_key not in self._lut_cache:
+            data = merged[self.key]
+            n_tx, n_ax, n_el, n_ch = (int(x) for x in data.shape[-4:])
+            self._lut_cache[cache_key] = precompute_delay_lut(
+                flatgrid=flatgrid,
+                t0_delays=merged["t0_delays"],
+                tx_apodizations=merged["tx_apodizations"],
+                probe_geometry=merged["probe_geometry"],
+                initial_times=merged["initial_times"],
+                sampling_frequency=merged["sampling_frequency"],
+                sound_speed=merged["sound_speed"],
+                n_tx=n_tx,
+                n_el=n_el,
+                focus_distances=merged["focus_distances"],
+                polar_angles=merged["polar_angles"],
+                t_peak=merged["t_peak"],
+                tx_waveform_indices=merged["tx_waveform_indices"],
+                transmit_origins=merged["transmit_origins"],
+                f_number=merged.get("f_number", 0),
+                apply_lens_correction=merged.get("apply_lens_correction", False),
+                lens_thickness=merged.get("lens_thickness", 1e-3),
+                lens_sound_speed=merged.get("lens_sound_speed", 1000),
+            )
+
+        lut = self._lut_cache[cache_key]
+        kwargs["lut_txdel"] = lut["txdel"]
+        kwargs["lut_rxdel"] = lut["rxdel"]
+        kwargs["lut_mask"]  = lut["mask"]
+        return super().__call__(**kwargs)
+
+    def call(
+        self,
+        lut_txdel,
+        lut_rxdel,
+        lut_mask,
+        flatgrid,
+        sound_speed,
+        polar_angles,
+        focus_distances,
+        sampling_frequency,
+        f_number,
+        demodulation_frequency,
+        t0_delays,
+        tx_apodizations,
+        initial_times,
+        probe_geometry,
+        t_peak,
+        tx_waveform_indices,
+        transmit_origins,
+        apply_lens_correction=None,
+        lens_thickness=None,
+        lens_sound_speed=None,
+        **kwargs,
+    ):
+        raw_data = kwargs[self.key]
+        fn = lambda d: tof_correction_das_lut(
+            d, lut_txdel, lut_rxdel, lut_mask,
+            demodulation_frequency, sampling_frequency,
+        )
+        result = fn(raw_data) if not self.with_batch_dim else ops.map(fn, raw_data)
         return {self.output_key: result}
 
 
